@@ -7,7 +7,6 @@ import json
 from openai import OpenAI
 import psycopg2
 from datetime import datetime
-import numpy as np
 import os
 import dotenv
 dotenv.load_dotenv()
