@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from flask import Flask, request, jsonify, abort
+from flask_cors import CORS
 from typing import Dict, List, Tuple, Optional
 import json
 import os
@@ -32,31 +31,11 @@ system_instruction = DEFAULT_SYSTEM_INSTRUCTION
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Initialize FastAPI app
-app = FastAPI(title="Cybersecurity Query API", version="1.0.0")
+# Initialize Flask app
+app = Flask(__name__)
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Update this in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Pydantic models
-class QueryRequest(BaseModel):
-    query: str
-    limit: Optional[int] = 5
-
-class QueryResponse(BaseModel):
-    success: bool
-    data: Optional[dict] = None
-    error: Optional[str] = None
-
-class HealthResponse(BaseModel):
-    status: str
-    message: str
+# Add CORS support
+CORS(app)
 
 class QueryAnalyzer:
     def analyze_query(self, query: str, available_columns: List[str]) -> Dict:
@@ -250,48 +229,54 @@ Analysis Focus: {analysis['query_focus']}
     finally:
         querier.close_connection()
 
-@app.get("/", response_model=HealthResponse)
+@app.route("/")
 def root():
-    return {"status": "healthy", "message": "Cybersecurity Query API is running"}
+    return jsonify({"status": "healthy", "message": "Cybersecurity Query API is running"})
 
-@app.get("/health", response_model=HealthResponse)
+@app.route("/health")
 def health_check():
-    return {"status": "healthy", "message": "API is up and running"}
+    return jsonify({"status": "healthy", "message": "API is up and running"})
 
-@app.get("/available-columns")
+@app.route("/available-columns")
 def get_available_columns():
     try:
         querier = DatabaseQuerier()
         if not querier.connect_to_database():
-            raise HTTPException(status_code=500, detail="Database connection failed")
+            abort(500, description="Database connection failed")
         try:
             columns = querier.get_available_columns(TABLE_NAME)
-            return {"success": True, "columns": columns}
+            return jsonify({"success": True, "columns": columns})
         finally:
             querier.close_connection()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching columns: {str(e)}")
+        abort(500, description=f"Error fetching columns: {str(e)}")
 
-@app.post("/query", response_model=QueryResponse)
-def query_endpoint(request: QueryRequest):
-    query = request.query.strip()
-    limit = request.limit
+@app.route("/query", methods=["POST"])
+def query_endpoint():
+    if not request.json:
+        abort(400, description="Request must be JSON")
+    
+    query = request.json.get("query", "").strip()
+    limit = request.json.get("limit", 5)
 
     if not query:
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        abort(400, description="Query cannot be empty")
 
     try:
         if not check_environment():
-            raise HTTPException(status_code=500, detail="Missing required environment variables")
+            abort(500, description="Missing required environment variables")
 
         results, analysis = process_query(query, TABLE_NAME, limit)
 
         if results:
             formatted_data = format_response(query, results, analysis)
             ai_response = get_llm_response(query, formatted_data)
-            return QueryResponse(success=True, data={"response": ai_response})
+            return jsonify({"success": True, "data": {"response": ai_response}})
         else:
-            return QueryResponse(success=True, data={"response": "No data found matching your query."})
+            return jsonify({"success": True, "data": {"response": "No data found matching your query."}})
     except Exception as e:
         print(f"Error processing query: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        abort(500, description=f"Error: {str(e)}")
+
+if __name__ == "__main__":
+    app.run(debug=True)
