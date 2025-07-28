@@ -1,5 +1,5 @@
-fastapi
-pydantic
+flask
+flask-cors
 openai>=1.30.0
 psycopg2-binary
 python-dotenv
