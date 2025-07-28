@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, Response
 from flask_cors import CORS
 from typing import Dict, List, Tuple, Optional
 import json
@@ -197,6 +197,45 @@ Ensure for each incident discussed, the sitrep link is included as [Sitrep Link]
     except Exception as e:
         return f"Error getting AI response: {str(e)}"
 
+def get_llm_response_stream(query: str, formatted_data: str):
+    """Generator function for streaming LLM response"""
+    try:
+        current_instruction = system_instruction
+        prompt = f"""
+As a data analyst, please analyze the following query and data:
+
+{formatted_data}
+
+{current_instruction}
+
+Ensure for each incident discussed, the sitrep link is included as [Sitrep Link](URL).
+"""
+        
+        # Send initial metadata
+        yield f"data: {json.dumps({'type': 'start', 'message': 'Starting analysis...'})}\n\n"
+        
+        stream = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": current_instruction},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=1000,
+            stream=True
+        )
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+        
+        # Send completion signal
+        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+        
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
 def check_environment():
     missing = []
     if not DB_CONN:
@@ -277,6 +316,71 @@ def query_endpoint():
     except Exception as e:
         print(f"Error processing query: {str(e)}")
         abort(500, description=f"Error: {str(e)}")
+
+@app.route("/query-stream", methods=["POST"])
+def query_stream_endpoint():
+    """Streaming version of the query endpoint"""
+    if not request.json:
+        abort(400, description="Request must be JSON")
+    
+    query = request.json.get("query", "").strip()
+    limit = request.json.get("limit", 5)
+
+    if not query:
+        abort(400, description="Query cannot be empty")
+
+    try:
+        if not check_environment():
+            abort(500, description="Missing required environment variables")
+
+        results, analysis = process_query(query, TABLE_NAME, limit)
+
+        if results:
+            formatted_data = format_response(query, results, analysis)
+            
+            def generate():
+                yield f"data: {json.dumps({'type': 'query_processed', 'query': query})}\n\n"
+                yield from get_llm_response_stream(query, formatted_data)
+            
+            return Response(
+                generate(),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Cache-Control'
+                }
+            )
+        else:
+            def generate_no_data():
+                yield f"data: {json.dumps({'type': 'complete', 'content': 'No data found matching your query.'})}\n\n"
+            
+            return Response(
+                generate_no_data(),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Cache-Control'
+                }
+            )
+    except Exception as e:
+        print(f"Error processing query: {str(e)}")
+        def generate_error():
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        
+        return Response(
+            generate_error(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Cache-Control'
+            }
+        )
 
 if __name__ == "__main__":
     app.run(debug=True)
