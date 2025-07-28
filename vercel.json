@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "cybersecurity_app.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "cybersecurity_app.py"
+      "dest": "api/index.py"
     }
   ]
 } 
