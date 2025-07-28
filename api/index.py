@@ -48,14 +48,20 @@ class QueryAnalyzer:
 Please analyze this query: "{query}"
 
 Available columns in the database: {', '.join(available_columns)}
+Based on the above system instructions and considering cybersecurity context, extract and return a JSON object with the following information:
+1. The most relevant columns for this query (only from the available columns list)
+2. The main focus of the query from a cybersecurity perspective
+3. Any specific data points or metrics mentioned that relate to security incidents
+4. Any time frame mentioned
+5. Any specific filtering criteria for security analysis
 
-Format:
+Format the response as a JSON object with these exact keys:
 {{
-    "relevant_columns": [], 
-    "query_focus": "", 
-    "specific_data_points": [], 
-    "time_frame": "", 
-    "filter_criteria": []
+    "relevant_columns": [], # list of column names from available_columns that are most relevant
+    "query_focus": "", # main topic or purpose of the query from security perspective
+    "specific_data_points": [], # list of specific security-related data points mentioned
+    "time_frame": "", # time period mentioned, if any
+    "filter_criteria": [] # any specific filtering criteria for security analysis
 }}
 """
             response = client.chat.completions.create(
