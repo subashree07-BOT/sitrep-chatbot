@@ -14,7 +14,7 @@ import psycopg2
 dotenv.load_dotenv()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DB_CONN = os.environ.get("DATABASE_URL")
-TABLE_NAME = 'sitrep'
+TABLE_NAME = 'Sitrep'
 EMBEDDING_MODEL = "text-embedding-ada-002"
 
 DEFAULT_SYSTEM_INSTRUCTION = """You are an AI assistant specialized in cybersecurity incident analysis. Your task is to analyze the given query and related cybersecurity data, and provide a focused, relevant response. Follow these guidelines:
