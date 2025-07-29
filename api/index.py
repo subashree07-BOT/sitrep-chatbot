@@ -129,7 +129,9 @@ class DatabaseQuerier:
             with self.conn.cursor() as cur:
                 if "ID" not in relevant_columns:
                     relevant_columns = ["ID"] + relevant_columns
-                columns_str = ", ".join(relevant_columns)
+                # Quote column names to preserve case in PostgreSQL
+                quoted_columns = [f'"{col}"' for col in relevant_columns]
+                columns_str = ", ".join(quoted_columns)
                 cur.execute(f"""
                     SELECT {columns_str}
                     FROM {table_name}
