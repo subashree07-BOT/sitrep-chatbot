@@ -175,7 +175,7 @@ Retrieved Data:
         for col, val in record.items():
             formatted += f"{col}: {val}\n"
         if record.get("ID"):
-            formatted += f"[Sitrep Link]({base_url}{record['id']})\n"
+            formatted += f"[Sitrep Link]({base_url}{record['ID']})\n"
     return formatted
 
 def get_llm_response(query: str, formatted_data: str) -> str:
