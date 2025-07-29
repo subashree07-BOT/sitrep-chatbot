@@ -14,7 +14,7 @@ import psycopg2
 dotenv.load_dotenv()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DB_CONN = os.environ.get("DATABASE_URL")
-TABLE_NAME = 'Sitrep'
+TABLE_NAME = 'sitrep'
 EMBEDDING_MODEL = "text-embedding-ada-002"
 
 DEFAULT_SYSTEM_INSTRUCTION = """You are an AI assistant specialized in cybersecurity incident analysis. Your task is to analyze the given query and related cybersecurity data, and provide a focused, relevant response. Follow these guidelines:
@@ -127,8 +127,8 @@ class DatabaseQuerier:
             return []
         try:
             with self.conn.cursor() as cur:
-                if "id" not in relevant_columns:
-                    relevant_columns = ["id"] + relevant_columns
+                if "ID" not in relevant_columns:
+                    relevant_columns = ["ID"] + relevant_columns
                 columns_str = ", ".join(relevant_columns)
                 cur.execute(f"""
                     SELECT {columns_str}
@@ -174,7 +174,7 @@ Retrieved Data:
         formatted += f"\nRecord {idx}:\n"
         for col, val in record.items():
             formatted += f"{col}: {val}\n"
-        if record.get("id"):
+        if record.get("ID"):
             formatted += f"[Sitrep Link]({base_url}{record['id']})\n"
     return formatted
 
